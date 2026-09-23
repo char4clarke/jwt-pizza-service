@@ -1,4 +1,4 @@
-const app = require('./service.js');
+const app = require("./service.js");
 
 const port = process.argv[2] || 3000;
 app.listen(port, () => {

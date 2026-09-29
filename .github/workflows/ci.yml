@@ -43,9 +43,14 @@ jobs:
               run: npm run lint
 
             - name: Write config file
+              env:
+                  JWT_SECRET: ${{ secrets.JWT_SECRET }}
+                  FACTORY_API_KEY: ${{ secrets.FACTORY_API_KEY }}
               run: |
-                  echo "module.exports = {
-                    jwtSecret: '${{ secrets.JWT_SECRET }}',
+                  node <<'NODE'
+                  const fs = require('node:fs');
+                  const config = {
+                    jwtSecret: process.env.JWT_SECRET,
                     db: {
                       connection: {
                         host: '127.0.0.1',
@@ -58,11 +63,14 @@ jobs:
                     },
                     factory: {
                       url: 'https://pizza-factory.cs329.click',
-                      apiKey: '${{ secrets.FACTORY_API_KEY }}',
+                      apiKey: process.env.FACTORY_API_KEY,
                     },
-                  };" > src/config.js
+                  };
+                  fs.writeFileSync('src/config.js', 'module.exports = ' + JSON.stringify(config) + ';\n', { mode: 0o600 });
+                  NODE
 
             - name: Tests
+              id: tests
               run: npm test
 
             - name: set version
@@ -73,7 +81,28 @@ jobs:
                   printf '{"version": "%s" }' "$version" > src/version.json
 
             - name: Update coverage
+              if: ${{ !cancelled() && steps.tests.outcome != 'skipped' }}
+              env:
+                  NET_ID: ${{ secrets.NET_ID }}
+                  FACTORY_API_KEY: ${{ secrets.FACTORY_API_KEY }}
               run: |
-                  coverage=$(jq '.total.lines.pct' coverage/coverage-summary.json)
-                  color=$(echo "$coverage < 80" | bc | awk '{if ($1) print "red"; else print "green"}')
-                  curl -s -X POST "https://pizza-factory.cs329.click/api/badge/${{ secrets.NET_ID }}/jwtpizzaservicecoverage?label=Coverage&value=$coverage%25&color=$color" -H "authorization: bearer ${{ secrets.FACTORY_API_KEY }}"
+                  node <<'NODE'
+                  const fs = require('node:fs');
+                  async function publishCoverage() {
+                    const summary = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+                    const coverage = summary.total.lines.pct;
+                    const color = coverage < 80 ? 'red' : 'green';
+                    const url = new URL(`https://pizza-factory.cs329.click/api/badge/${encodeURIComponent(process.env.NET_ID)}/jwtpizzaservicecoverage`);
+                    url.search = new URLSearchParams({ label: 'Coverage', value: `${coverage}%`, color }).toString();
+                    const response = await fetch(url, {
+                      method: 'POST',
+                      headers: { authorization: `bearer ${process.env.FACTORY_API_KEY}` },
+                    });
+                    if (!response.ok) throw new Error(`Coverage badge update failed (HTTP ${response.status})`);
+                    console.log(`Published line coverage: ${coverage}% (${color})`);
+                  }
+                  publishCoverage().catch((error) => {
+                    console.error(error.message);
+                    process.exitCode = 1;
+                  });
+                  NODE

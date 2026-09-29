@@ -1,27 +1,34 @@
 const request = require("supertest");
 const app = require("../service");
+const { DB } = require("../database/database");
+const { randomUUID } = require("node:crypto");
 
 function randomName() {
-  return Math.random().toString(36).substring(2, 12);
+  return randomUUID();
 }
 
-// async function createAdminUser() {
-//   let user = { password: 'toomanysecrets', roles: [{ role: Role.Admin }] };
-//   user.name = randomName();
-//   user.email = user.name + '@admin.com';
-
-//   user = await DB.addUser(user);
-//   return { ...user, password: 'toomanysecrets' };
-// }
-
-const testUser = { name: "pizza diner", email: "reg@test.com", password: "a" };
+const testUser = { name: "pizza diner", email: "reg@test.com", password: randomUUID() };
 let testUserAuthToken;
+let userId;
 
 beforeAll(async () => {
   testUser.email = randomName() + "@test.com";
-  const registerRes = await request(app).post("/api/auth").send(testUser);
+  const registerRes = await request(app).post("/api/auth").send(testUser).expect(200);
+  userId = registerRes.body.user.id;
   testUserAuthToken = registerRes.body.token;
   expectValidJwt(testUserAuthToken);
+});
+
+afterAll(async () => {
+  if (!userId) return;
+  const connection = await DB.getConnection();
+  try {
+    await connection.execute('DELETE FROM auth WHERE userId=?', [userId]);
+    await connection.execute('DELETE FROM userRole WHERE userId=?', [userId]);
+    await connection.execute('DELETE FROM user WHERE id=?', [userId]);
+  } finally {
+    await connection.end();
+  }
 });
 
 test("login", async () => {
@@ -40,9 +47,7 @@ test("get menu as a registered user", async () => {
     .set("Authorization", `Bearer ${testUserAuthToken}`);
 
   expect(menuRes.status).toBe(200);
-  // expect(menuRes.body).toEqual(
-  //   expect.arrayContaining([expect.objectContaining({ title: "Crusty" })]),
-  // );
+  expect(Array.isArray(menuRes.body)).toBe(true);
 });
 
 function expectValidJwt(potentialJwt) {

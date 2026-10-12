@@ -51,14 +51,38 @@ userRouter.put(
   })
 );
 
+
 // deleteUser
 userRouter.delete(
   '/:userId',
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
-    res.json({ message: 'not implemented' });
+    if (!req.user.isRole(Role.Admin)) {
+      return res.status(403).json({
+        message: 'admin access required',
+      });
+    }
+
+    const userId = Number(req.params.userId);
+
+    if (!Number.isSafeInteger(userId) || userId < 1) {
+      return res.status(400).json({
+        message: 'invalid user ID',
+      });
+    }
+
+    const deleted = await DB.deleteUser(userId);
+
+    if (!deleted) {
+      return res.status(404).json({
+        message: 'user not found',
+      });
+    }
+
+    res.json({ message: 'user deleted' });
   })
 );
+
 
 // listUsers
 userRouter.get(

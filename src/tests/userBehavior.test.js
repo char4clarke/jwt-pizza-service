@@ -225,3 +225,68 @@ describe('List users functionality', () => {
       .expect(400);
   });
 });
+
+
+
+test('admin can delete a user', async () => {
+  const adminEmail = `${randomUUID()}@example.test`;
+  const dinerEmail = `${randomUUID()}@example.test`;
+
+  const admin = await DB.addUser({
+    name: 'Delete Test Admin',
+    email: adminEmail,
+    password: 'admin123',
+    roles: [{ role: 'admin' }],
+  });
+
+  const diner = await DB.addUser({
+    name: 'Delete Test Diner',
+    email: dinerEmail,
+    password: 'diner123',
+    roles: [{ role: 'diner' }],
+  });
+
+  const login = await request(app)
+    .put('/api/auth')
+    .send({ email: adminEmail, password: 'admin123' })
+    .expect(200);
+
+  const adminToken = login.body.token;
+
+  try {
+    // A regular diner cannot delete another user
+    await request(app)
+      .delete(`/api/user/${admin.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(403);
+
+    // Unauthenticated requests are rejected
+    await request(app)
+      .delete(`/api/user/${diner.id}`)
+      .expect(401);
+
+    // Admin deletes the diner
+    await request(app)
+      .delete(`/api/user/${diner.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    // Deleted diner cannot log in
+    await request(app)
+      .put('/api/auth')
+      .send({ email: dinerEmail, password: 'diner123' })
+      .expect(404);
+  } finally {
+    // Clean up the test admin and any remaining diner data
+    const connection = await DB.getConnection();
+    try {
+      for (const id of [admin.id, diner.id]) {
+        await connection.execute('DELETE FROM auth WHERE userId=?', [id]);
+        await connection.execute('DELETE FROM userRole WHERE userId=?', [id]);
+        await connection.execute('DELETE FROM user WHERE id=?', [id]);
+      }
+    } finally {
+      await connection.end();
+    }
+  }
+});

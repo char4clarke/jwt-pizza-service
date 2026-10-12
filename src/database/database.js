@@ -204,6 +204,60 @@ class DB {
   }
 
 
+  async deleteUser(userId) {
+    const connection = await this.getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      try {
+        // Remove items belonging to the user's orders.
+        await this.query(
+          connection,
+          `DELETE oi FROM orderItem oi
+          JOIN dinerOrder d ON oi.orderId = d.id
+          WHERE d.dinerId = ?`,
+          [userId]
+        );
+
+        await this.query(
+          connection,
+          'DELETE FROM dinerOrder WHERE dinerId = ?',
+          [userId]
+        );
+
+        // Remove login sessions and roles.
+        await this.query(
+          connection,
+          'DELETE FROM auth WHERE userId = ?',
+          [userId]
+        );
+
+        await this.query(
+          connection,
+          'DELETE FROM userRole WHERE userId = ?',
+          [userId]
+        );
+
+        // Finally remove the user.
+        const result = await this.query(
+          connection,
+          'DELETE FROM user WHERE id = ?',
+          [userId]
+        );
+
+        await connection.commit();
+        return result.affectedRows > 0;
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      }
+    } finally {
+      await connection.end();
+    }
+  }
+
+
   async getUsers(page = 1, limit = 10, nameFilter = '*') {
     const connection = await this.getConnection();
 

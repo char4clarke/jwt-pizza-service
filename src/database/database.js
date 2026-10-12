@@ -203,6 +203,54 @@ class DB {
     }
   }
 
+
+  async getUsers(page = 1, limit = 10, nameFilter = '*') {
+    const connection = await this.getConnection();
+
+    try {
+      // Convert wildcard * to SQL %
+      const filter = nameFilter.replace(/\*/g, '%');
+
+      // Pagination starts at page 1
+      const offset = (page - 1) * limit;
+
+      // Fetch one extra user to determine if another page exists
+      let users = await this.query(
+        connection,
+        `SELECT id, name, email
+        FROM user
+        WHERE name LIKE ?
+        ORDER BY id
+        LIMIT ? OFFSET ?`,
+        [filter, limit + 1, offset]
+      );
+
+      const more = users.length > limit;
+      users = users.slice(0, limit);
+
+      // Attach each user's roles
+      for (const user of users) {
+        const roles = await this.query(
+          connection,
+          `SELECT role, objectId
+          FROM userRole
+          WHERE userId = ?`,
+          [user.id]
+        );
+
+        user.roles = roles.map((r) => ({
+          role: r.role,
+          ...(r.objectId ? { objectId: r.objectId } : {}),
+        }));
+      }
+
+      return { users, more };
+    } finally {
+      await connection.end();
+    }
+  }
+
+
   async getFranchises(authUser, page = 0, limit = 10, nameFilter = '*') {
     const connection = await this.getConnection();
 

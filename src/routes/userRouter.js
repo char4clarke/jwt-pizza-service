@@ -65,8 +65,32 @@ userRouter.get(
   '/',
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
-    res.json({ message: 'not implemented', users: [], more: false });
+    if (!req.user.isRole(Role.Admin)) {
+      return res.status(403).json({
+        message: 'admin access required',
+      });
+    }
+
+    const page = Number(req.query.page ?? 1);
+    const limit = Number(req.query.limit ?? 10);
+    const name = String(req.query.name ?? '*');
+
+    if (
+      !Number.isSafeInteger(page) ||
+      page < 1 ||
+      !Number.isSafeInteger(limit) ||
+      limit < 1 ||
+      limit > 100
+    ) {
+      return res.status(400).json({
+        message: 'invalid pagination parameters',
+      });
+    }
+
+    const result = await DB.getUsers(page, limit, name);
+    res.json(result);
   })
 );
+
 
 module.exports = userRouter;

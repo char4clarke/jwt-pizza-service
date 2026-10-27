@@ -108,13 +108,13 @@ jobs:
           NODE
       - name: Create dist
         run: |
-            mkdir -p dist
-            cp Dockerfile dist/
-            cp -r src/* dist/
-            cp *.json dist/
-            sed -i "s/root/${{ secrets.DB_USERNAME }}/g" dist/config.js
-            sed -i "s/tempdbpassword/${{ secrets.DB_PASSWORD }}/g" dist/config.js
-            sed -i "s/127.0.0.1/${{ secrets.DB_HOSTNAME }}/g" dist/config.js
+          mkdir -p dist
+          cp Dockerfile dist/
+          cp -r src/* dist/
+          cp *.json dist/
+          sed -i "s/root/${{ secrets.DB_USERNAME }}/g" dist/config.js
+          sed -i "s/tempdbpassword/${{ secrets.DB_PASSWORD }}/g" dist/config.js
+          sed -i "s/127.0.0.1/${{ secrets.DB_HOSTNAME }}/g" dist/config.js
 
       - name: Update distribution artifact
         uses: actions/upload-artifact@v7.0.2
@@ -167,3 +167,10 @@ jobs:
             -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
             --push .
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy new container
+        run: |
+          aws ecs update-service \
+            --cluster jwt-pizza-service \
+            --service jwt-pizza-service \
+            --force-new-deployment

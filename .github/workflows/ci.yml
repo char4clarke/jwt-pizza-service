@@ -108,30 +108,13 @@ jobs:
           NODE
       - name: Create dist
         run: |
-          mkdir -p dist
-          cp Dockerfile dist/
-          cp -r src/* dist/
-          cp *.json dist/
-
-          cat > dist/config.js <<'EOF'
-          module.exports = {
-            jwtSecret: process.env.JWT_SECRET,
-            db: {
-              connection: {
-                host: process.env.DB_HOSTNAME,
-                user: process.env.DB_USERNAME,
-                password: process.env.DB_PASSWORD,
-                database: 'pizza',
-                connectTimeout: 60000,
-              },
-              listPerPage: 10,
-            },
-            factory: {
-              url: 'https://pizza-factory.cs329.click',
-              apiKey: process.env.FACTORY_API_KEY,
-            },
-          };
-          EOF
+            mkdir -p dist
+            cp Dockerfile dist/
+            cp -r src/* dist/
+            cp *.json dist/
+            sed -i "s/root/${{ secrets.DB_USERNAME }}/g" dist/config.js
+            sed -i "s/tempdbpassword/${{ secrets.DB_PASSWORD }}/g" dist/config.js
+            sed -i "s/127.0.0.1/${{ secrets.DB_HOSTNAME }}/g" dist/config.js
 
       - name: Update distribution artifact
         uses: actions/upload-artifact@v7.0.2

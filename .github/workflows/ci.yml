@@ -46,6 +46,10 @@ jobs:
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           FACTORY_API_KEY: ${{ secrets.FACTORY_API_KEY }}
+          METRICS_ENDPOINT_URL: ${{ secrets.METRICS_ENDPOINT_URL }}
+          METRICS_ACCOUNT_ID: ${{ secrets.METRICS_ACCOUNT_ID }}
+          METRICS_API_KEY: ${{ secrets.METRICS_API_KEY }}
+
         run: |
           node <<'NODE'
           const fs = require('node:fs');
@@ -65,6 +69,13 @@ jobs:
               url: 'https://pizza-factory.cs329.click',
               apiKey: process.env.FACTORY_API_KEY,
             },
+            metrics: {
+              source: 'jwt-pizza-service',
+              endpointUrl: process.env.METRICS_ENDPOINT_URL,
+              accountId: process.env.METRICS_ACCOUNT_ID,
+              apiKey: process.env.METRICS_API_KEY,
+            },
+
           };
           fs.writeFileSync('src/config.js', 'module.exports = ' + JSON.stringify(config) + ';\n', { mode: 0o600 });
           NODE

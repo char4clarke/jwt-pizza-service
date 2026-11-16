@@ -49,6 +49,10 @@ jobs:
           METRICS_ENDPOINT_URL: ${{ secrets.METRICS_ENDPOINT_URL }}
           METRICS_ACCOUNT_ID: ${{ secrets.METRICS_ACCOUNT_ID }}
           METRICS_API_KEY: ${{ secrets.METRICS_API_KEY }}
+          LOGGING_ACCOUNT_ID: ${{ secrets.LOGGING_ACCOUNT_ID }}
+          LOGGING_ENDPOINT_URL: ${{ secrets.LOGGING_ENDPOINT_URL }}
+          LOGGING_API_KEY: ${{ secrets.LOGGING_API_KEY }}
+
 
         run: |
           node <<'NODE'
@@ -75,6 +79,13 @@ jobs:
               accountId: process.env.METRICS_ACCOUNT_ID,
               apiKey: process.env.METRICS_API_KEY,
             },
+            logging: {
+              source: 'jwt-pizza-service',
+              endpointUrl: process.env.LOGGING_ENDPOINT_URL,
+              accountId: process.env.LOGGING_ACCOUNT_ID,
+              apiKey: process.env.LOGGING_API_KEY,
+            },
+
 
           };
           fs.writeFileSync('src/config.js', 'module.exports = ' + JSON.stringify(config) + ';\n', { mode: 0o600 });

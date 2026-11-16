@@ -54,6 +54,10 @@ function currentUser() {
 }
 
 function log(level, type, data = {}) {
+  if (process.env.NODE_ENV === 'test') {
+    return;
+  }
+  
   if (!settings.endpointUrl || !settings.accountId || !settings.apiKey) {
     return;
   }
